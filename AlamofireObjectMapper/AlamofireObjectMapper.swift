@@ -27,8 +27,6 @@
 //  THE SOFTWARE.
 
 import Foundation
-import Alamofire
-import ObjectMapper
 
 extension Request {
     
@@ -46,10 +44,10 @@ extension Request {
             
             let JSONResponseSerializer = Request.JSONResponseSerializer(options: .AllowFragments)
             let result = JSONResponseSerializer.serializeResponse(request, response, data, error)
-        
+            
             let JSONToMap: AnyObject?
-            if let keyPath = keyPath where keyPath.isEmpty == false {
-                JSONToMap = result.value?.valueForKeyPath(keyPath)
+            if let keyPath = keyPath {
+                JSONToMap = result.value?[keyPath]
             } else {
                 JSONToMap = result.value
             }
@@ -57,7 +55,7 @@ extension Request {
             if let parsedObject = Mapper<T>().map(JSONToMap){
                 return .Success(parsedObject)
             }
-
+            
             let failureReason = "ObjectMapper failed to serialize response."
             let error = Error.errorWithCode(.DataSerializationFailed, failureReason: failureReason)
             return .Failure(error)
@@ -67,9 +65,9 @@ extension Request {
     /**
      Adds a handler to be called once the request has finished.
      
-    - parameter completionHandler: A closure to be executed once the request has finished and the data has been mapped by ObjectMapper.
+     - parameter completionHandler: A closure to be executed once the request has finished and the data has been mapped by ObjectMapper.
      
-    - returns: The request.
+     - returns: The request.
      */
     public func responseObject<T: Mappable>(completionHandler: Response<T, NSError> -> Void) -> Self {
         return responseObject(nil, keyPath: nil, completionHandler: completionHandler)
@@ -86,18 +84,6 @@ extension Request {
     public func responseObject<T: Mappable>(keyPath: String, completionHandler: Response<T, NSError> -> Void) -> Self {
         return responseObject(nil, keyPath: keyPath, completionHandler: completionHandler)
     }
-
-    /**
-     Adds a handler to be called once the request has finished.
-     
-     - parameter queue:             The queue on which the completion handler is dispatched.
-     - parameter completionHandler: A closure to be executed once the request has finished and the data has been mapped by ObjectMapper.
-     
-     - returns: The request.
-     */
-    public func responseObject<T: Mappable>(queue: dispatch_queue_t?, completionHandler: Response<T, NSError> -> Void) -> Self {
-        return responseObject(queue, keyPath: nil, completionHandler: completionHandler)
-    }
     
     /**
      Adds a handler to be called once the request has finished.
@@ -107,7 +93,7 @@ extension Request {
      - parameter completionHandler: A closure to be executed once the request has finished and the data has been mapped by ObjectMapper.
      
      - returns: The request.
-    */
+     */
     public func responseObject<T: Mappable>(queue: dispatch_queue_t?, keyPath: String?, completionHandler: Response<T, NSError> -> Void) -> Self {
         return response(queue: queue, responseSerializer: Request.ObjectMapperSerializer(keyPath), completionHandler: completionHandler)
     }
@@ -128,9 +114,19 @@ extension Request {
             let result = JSONResponseSerializer.serializeResponse(request, response, data, error)
             
             let JSONToMap: AnyObject?
-            if let keyPath = keyPath where keyPath.isEmpty == false {
-                JSONToMap = result.value?.valueForKeyPath(keyPath)
-                print(result.value)
+            if let keyPath = keyPath {
+                let paths = keyPath.componentsSeparatedByString(".")
+                var newValue = result.value
+                for path in paths {
+                    if let val = newValue?[path] {
+                        if val != nil {
+                            newValue = val!
+                        }
+                    } else {
+                        break
+                    }
+                }
+                JSONToMap = newValue
             } else {
                 JSONToMap = result.value
             }
@@ -151,11 +147,11 @@ extension Request {
      - parameter completionHandler: A closure to be executed once the request has finished and the data has been mapped by ObjectMapper.
      
      - returns: The request.
-    */
+     */
     public func responseArray<T: Mappable>(completionHandler: Response<[T], NSError> -> Void) -> Self {
         return responseArray(nil, keyPath: nil, completionHandler: completionHandler)
     }
-
+    
     /**
      Adds a handler to be called once the request has finished.
      
@@ -163,11 +159,11 @@ extension Request {
      - parameter completionHandler: A closure to be executed once the request has finished and the data has been mapped by ObjectMapper.
      
      - returns: The request.
-    */
+     */
     public func responseArray<T: Mappable>(keyPath: String, completionHandler: Response<[T], NSError> -> Void) -> Self {
         return responseArray(nil, keyPath: keyPath, completionHandler: completionHandler)
     }
-
+    
     /**
      Adds a handler to be called once the request has finished.
      
@@ -175,7 +171,7 @@ extension Request {
      - parameter completionHandler: A closure to be executed once the request has finished and the data has been mapped by ObjectMapper.
      
      - returns: The request.
-    */
+     */
     public func responseArray<T: Mappable>(queue: dispatch_queue_t?, completionHandler: Response<[T], NSError> -> Void) -> Self {
         return responseArray(queue, keyPath: nil, completionHandler: completionHandler)
     }
@@ -188,7 +184,7 @@ extension Request {
      - parameter completionHandler: A closure to be executed once the request has finished and the data has been mapped by ObjectMapper.
      
      - returns: The request.
-    */
+     */
     public func responseArray<T: Mappable>(queue: dispatch_queue_t?, keyPath: String?, completionHandler: Response<[T], NSError> -> Void) -> Self {
         return response(queue: queue, responseSerializer: Request.ObjectMapperArraySerializer(keyPath), completionHandler: completionHandler)
     }
